@@ -570,6 +570,24 @@ docker exec movieticket_db sh -c 'mysql --default-character-set=utf8mb4 -uroot -
 
 4. Kiem tra lai: `SELECT HEX(title) FROM movies;` -> chu "Hanh" co byte `48C3A06E68` (UTF-8 dung) thay vi `48C383C2AD` (bi mojibake).
 
+### Lan 2: Genre + Description Van Bi Mojibake (Da Xu Ly)
+
+**Nguyen nhan:** clause `ON DUPLICATE KEY UPDATE title=VALUES(title)` chi lam moi cot `title` khi re-run init.sql, nen `genre` va `description` (vi du mo ta phim Exhuma van hien `Má»™t gia Ä'Ã¬nh...`) van con du lieu mojibake cu trong volume.
+
+**Cach sua da ap dung:**
+1. `mysql/init.sql`: them `SET NAMES utf8mb4;` ngay sau lenh `USE cinema_booking;` (ep client charset khi seed, khong phu thuoc vao mac dinh cua mysql client).
+2. `mysql/init.sql` (bang movies): broadens clause `ON DUPLICATE KEY UPDATE` day du cac cot seed: `title, genre, duration, description, poster_url, rating, status, release_date` — de moi lan re-run tu chua het cac cot van ban (truoc do chi sua title nen genre/description hong).
+3. Re-run lai init.sql dung lenh o muc 3 ben tren (file da duoc mount vao container qua bind mount nen khong can rebuild image):
+
+```bash
+docker exec movieticket_db sh -c 'mysql --default-character-set=utf8mb4 -uroot -p$MYSQL_ROOT_PASSWORD < /docker-entrypoint-initdb.d/init.sql'
+```
+
+4. Kiem tra sau fix:
+   - `SELECT HEX(LEFT(description,5)) FROM movies WHERE id=4;` -> `4DE1BB9974` ("Mot" UTF-8 dung) thay vi `4DC3A1C2BBE284A274` (mojibake `Má»™t`).
+   - `SELECT COUNT(*) FROM movies WHERE genre REGEXP 'Ã[^ -~]|Ä.' OR description REGEXP 'Ã[^ -~]|Ä.';` -> `0` (khong con mojibake).
+   - `curl -sk https://localhost:8443/api/movies` -> ten phim / the loai / mo ta tieng Viet sach; header co `charset=utf-8`.
+
 ---
 
 ## Xu Ly Su Co

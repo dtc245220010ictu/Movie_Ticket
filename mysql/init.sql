@@ -8,6 +8,10 @@ COLLATE utf8mb4_unicode_ci;
 
 USE cinema_booking;
 
+-- Ép client charset = utf8mb4 TRƯỚC khi seed (chống mojibake nếu mysql client
+-- chạy với latin1 mặc định — byte UTF-8 sẽ bị đọc nhầm thành CP1252 rồi encode lại)
+SET NAMES utf8mb4;
+
 -- 1. Bảng danh sách phim (movies)
 CREATE TABLE IF NOT EXISTS movies (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -169,7 +173,15 @@ INSERT INTO movies (id, title, genre, duration, description, poster_url, rating,
 (5, 'Avatar 3: Người Tro Tàn', 'Hành động, Phiêu lưu', 190, 
  'Jake Sully và Neytiri khám phá những vùng đất mới trên hành tinh Pandora và chạm trán với tộc Người Tro Tàn hung hãn.',
  'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=600&auto=format&fit=crop', 'C13', 'coming_soon', '2026-12-19')
-ON DUPLICATE KEY UPDATE title=VALUES(title);
+ON DUPLICATE KEY UPDATE 
+    title=VALUES(title), 
+    genre=VALUES(genre), 
+    duration=VALUES(duration), 
+    description=VALUES(description), 
+    poster_url=VALUES(poster_url), 
+    rating=VALUES(rating), 
+    status=VALUES(status), 
+    release_date=VALUES(release_date);
 
 -- Thêm các suất chiếu hôm nay và những ngày tới (sử dụng thời gian động)
 INSERT INTO showtimes (id, movie_id, room_id, start_time, base_price) VALUES
