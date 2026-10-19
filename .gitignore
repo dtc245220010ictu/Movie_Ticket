@@ -1,0 +1,40 @@
+# Environment variables (chứa mật khẩu & bí mật, KHÔNG ĐƯỢC COMMIT)
+.env
+.env.local
+.env.*.local
+
+# Dependency directories
+node_modules/
+package-lock.json
+
+# Private keys & Certificates
+certs/*.key
+certs/*.pem
+!certs/README.md
+
+# Log files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+
+# Operating System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE & Editor settings
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Temporary / Build directories
+dist/
+build/
+tmp/
+scratch/

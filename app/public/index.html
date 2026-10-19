@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CYBER CINEMA — Hệ Thống Đặt Vé Xem Phim Trực Tuyến</title>
+  <meta name="description" content="Đồ án Đề 11: Hệ thống Đặt vé Xem phim / Sự kiện bằng Docker Compose, Nginx, MySQL, Prometheus, Grafana, Loki.">
+  <!-- Google Fonts: Outfit & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Header / Navigation -->
+  <header class="navbar">
+    <div class="nav-container">
+      <a href="#" class="brand-logo" id="brand-logo">
+        <i class="fa-solid fa-film"></i>
+        <span>CYBER<span class="highlight">CINEMA</span></span>
+      </a>
+
+      <nav class="nav-links">
+        <a href="#movies-section" class="nav-item active"><i class="fa-solid fa-clapperboard"></i> Phim Đang Chiếu</a>
+        <a href="#showtimes-section" class="nav-item"><i class="fa-solid fa-calendar-days"></i> Lịch Chiếu</a>
+        <a href="#" class="nav-item" id="nav-lookup-btn"><i class="fa-solid fa-ticket"></i> Tra Cứu Vé</a>
+      </nav>
+
+      <div class="nav-actions">
+        <div class="status-badge" id="system-status-badge">
+          <span class="status-dot"></span>
+          <span class="status-text">Hệ Thống Sẵn Sàng</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Banner -->
+  <section class="hero-section">
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <span class="hero-tag"><i class="fa-solid fa-star"></i> BOM TẤN ĐƯỢC CHỜ ĐỢI NHẤT 2026</span>
+      <h1 class="hero-title">Trải Nghiệm Điện Ảnh Đỉnh Cao</h1>
+      <p class="hero-desc">
+        Hệ thống đặt vé trực tuyến hiện đại với công nghệ chiếu phim IMAX Laser & âm thanh vòm Dolby Atmos đa chiều. Chọn ghế thông minh, thanh toán tức thì và nhận vé điện tử ngay trong vài giây!
+      </p>
+      <div class="hero-buttons">
+        <a href="#movies-section" class="btn btn-primary"><i class="fa-solid fa-ticket"></i> Đặt Vé Ngay</a>
+        <button class="btn btn-outline" id="quick-demo-btn"><i class="fa-solid fa-circle-play"></i> Xem Kiến Trúc Hệ Thống</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Content Container -->
+  <main class="main-container">
+    <!-- Filter Bar -->
+    <section class="filter-section" id="movies-section">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Danh Sách Phim</h2>
+          <p class="section-subtitle">Dữ liệu được truy vấn trực tiếp từ cơ sở dữ liệu MySQL qua REST API</p>
+        </div>
+        <div class="tab-filters">
+          <button class="tab-btn active" data-status="all">Tất Cả</button>
+          <button class="tab-btn" data-status="now_showing">Đang Chiếu</button>
+          <button class="tab-btn" data-status="coming_soon">Sắp Chiếu</button>
+        </div>
+      </div>
+
+      <!-- Movie Grid -->
+      <div class="movies-grid" id="movies-grid">
+        <div class="loading-spinner">
+          <i class="fa-solid fa-circle-notch fa-spin"></i>
+          <p>Đang tải danh sách phim từ máy chủ...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Showtimes Quick View Section -->
+    <section class="showtimes-section" id="showtimes-section">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Suất Chiếu Hôm Nay & Sắp Tới</h2>
+          <p class="section-subtitle">Chọn suất chiếu phù hợp để tiến hành chọn ghế rạp</p>
+        </div>
+      </div>
+      <div class="showtimes-table-card">
+        <div class="table-responsive">
+          <table class="showtimes-table" id="showtimes-table">
+            <thead>
+              <tr>
+                <th>Phim</th>
+                <th>Phòng Chiếu & Màn Hình</th>
+                <th>Thời Gian Khởi Chiếu</th>
+                <th>Giá Vé Cơ Bản</th>
+                <th>Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="showtimes-tbody">
+              <!-- Loaded via JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL: CHỌN SUẤT CHIẾU & SƠ ĐỒ GHẾ -->
+  <div class="modal" id="seat-modal">
+    <div class="modal-backdrop" id="seat-modal-backdrop"></div>
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div class="modal-title-box">
+            <h3 class="modal-title" id="seat-modal-movie-title">Tên Phim</h3>
+            <span class="badge" id="seat-modal-room-badge">Phòng Chiếu</span>
+          </div>
+          <button class="modal-close" id="close-seat-modal-btn">&times;</button>
+        </div>
+
+        <div class="modal-body seat-selection-layout">
+          <!-- Cột bên trái: Sơ đồ ghế -->
+          <div class="screen-and-seats-area">
+            <div class="screen-wrapper">
+              <div class="cinema-screen"></div>
+              <p class="screen-label">MÀN HÌNH CHIẾU PHIM (SCREEN)</p>
+            </div>
+
+            <!-- Chú thích loại ghế -->
+            <div class="seat-legend">
+              <div class="legend-item"><span class="legend-box seat-standard"></span> Ghế Thường</div>
+              <div class="legend-item"><span class="legend-box seat-vip"></span> Ghế VIP (+20%)</div>
+              <div class="legend-item"><span class="legend-box seat-selected"></span> Đang Chọn</div>
+              <div class="legend-item"><span class="legend-box seat-booked"></span> Đã Đặt (Khóa)</div>
+            </div>
+
+            <!-- Khung lưới ghế hiển thị động -->
+            <div class="seats-grid-container" id="seats-grid-container">
+              <div class="loading-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i> Đang tải sơ đồ ghế...</div>
+            </div>
+          </div>
+
+          <!-- Cột bên phải: Tóm tắt đơn & Thông tin khách hàng -->
+          <div class="booking-summary-sidebar">
+            <h4 class="sidebar-title"><i class="fa-solid fa-receipt"></i> Tóm Tắt Đặt Vé</h4>
+            
+            <div class="summary-details">
+              <div class="summary-row">
+                <span class="label">Phim:</span>
+                <span class="value" id="summary-movie">Chưa chọn</span>
+              </div>
+              <div class="summary-row">
+                <span class="label">Suất chiếu:</span>
+                <span class="value" id="summary-time">--:--</span>
+              </div>
+              <div class="summary-row">
+                <span class="label">Phòng chiếu:</span>
+                <span class="value" id="summary-room">--</span>
+              </div>
+              <div class="summary-row">
+                <span class="label">Ghế đã chọn:</span>
+                <span class="value highlight" id="summary-seats">Chưa chọn ghế</span>
+              </div>
+              <div class="summary-divider"></div>
+              <div class="summary-row total-row">
+                <span class="label">Tổng Tạm Tính:</span>
+                <span class="value total-price" id="summary-total">0 đ</span>
+              </div>
+            </div>
+
+            <!-- Form điền thông tin -->
+            <form id="booking-customer-form" class="customer-form">
+              <div class="form-group">
+                <label for="cust-name"><i class="fa-solid fa-user"></i> Họ và Tên:</label>
+                <input type="text" id="cust-name" required placeholder="Ví dụ: Nguyễn Văn An" value="Nguyễn Văn An">
+              </div>
+              <div class="form-group">
+                <label for="cust-email"><i class="fa-solid fa-envelope"></i> Email nhận vé:</label>
+                <input type="email" id="cust-email" required placeholder="email@domain.com" value="student.ictu@gmail.com">
+              </div>
+              <div class="form-group">
+                <label for="cust-phone"><i class="fa-solid fa-phone"></i> Số điện thoại:</label>
+                <input type="tel" id="cust-phone" required placeholder="0912345678" value="0912345678">
+              </div>
+
+              <button type="submit" class="btn btn-primary btn-block" id="submit-booking-btn">
+                <i class="fa-solid fa-credit-card"></i> Xác Nhận & Sang Thanh Toán
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: THANH TOÁN MÔ PHỎNG (MOCK PAYMENT) -->
+  <div class="modal" id="payment-modal">
+    <div class="modal-backdrop" id="payment-modal-backdrop"></div>
+    <div class="modal-dialog modal-md">
+      <div class="modal-content payment-card">
+        <div class="modal-header">
+          <h3 class="modal-title"><i class="fa-solid fa-shield-halved"></i> Thanh Toán Giả Lập (Mô Phỏng)</h3>
+          <button class="modal-close" id="close-payment-modal-btn">&times;</button>
+        </div>
+
+        <div class="modal-body text-center">
+          <div class="alert alert-info">
+            <i class="fa-solid fa-circle-info"></i> Đây là môi trường Demo Đồ án. Hệ thống KHÔNG kết nối ngân hàng thật và KHÔNG yêu cầu thông tin thẻ thực tế.
+          </div>
+
+          <div class="payment-amount-box">
+            <p class="amount-label">Số Tiền Cần Thanh Toán:</p>
+            <h2 class="amount-val" id="payment-amount-val">0 đ</h2>
+            <p class="booking-code-text">Mã Đơn Hàng: <strong id="payment-booking-code">--</strong></p>
+          </div>
+
+          <div class="mock-qr-container">
+            <div class="qr-box">
+              <svg viewBox="0 0 100 100" class="mock-qr-svg">
+                <rect x="0" y="0" width="100" height="100" fill="#ffffff" rx="8" />
+                <rect x="10" y="10" width="25" height="25" fill="#111827" />
+                <rect x="15" y="15" width="15" height="15" fill="#ffffff" />
+                <rect x="18" y="18" width="9" height="9" fill="#111827" />
+                <rect x="65" y="10" width="25" height="25" fill="#111827" />
+                <rect x="70" y="15" width="15" height="15" fill="#ffffff" />
+                <rect x="73" y="18" width="9" height="9" fill="#111827" />
+                <rect x="10" y="65" width="25" height="25" fill="#111827" />
+                <rect x="15" y="70" width="15" height="15" fill="#ffffff" />
+                <rect x="18" y="73" width="9" height="9" fill="#111827" />
+                <!-- Pattern squares -->
+                <rect x="42" y="15" width="10" height="10" fill="#111827" />
+                <rect x="45" y="35" width="15" height="8" fill="#111827" />
+                <rect x="15" y="45" width="20" height="10" fill="#111827" />
+                <rect x="45" y="55" width="20" height="15" fill="#111827" />
+                <rect x="70" y="45" width="18" height="18" fill="#111827" />
+                <rect x="40" y="75" width="15" height="12" fill="#111827" />
+                <rect x="70" y="75" width="15" height="15" fill="#111827" />
+              </svg>
+            </div>
+            <p class="qr-hint">Mô phỏng quét mã VietQR ngân hàng</p>
+          </div>
+
+          <div class="payment-actions">
+            <button class="btn btn-success btn-lg btn-block" id="confirm-pay-success-btn">
+              <i class="fa-solid fa-circle-check"></i> Xác Nhận Thanh Toán Thành Công
+            </button>
+            <button class="btn btn-danger btn-block" id="confirm-pay-cancel-btn">
+              <i class="fa-solid fa-circle-xmark"></i> Hủy Giao Dịch & Giải Phóng Ghế
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: VÉ ĐIỆN TỬ (E-TICKET) XUẤT SAU THANH TOÁN -->
+  <div class="modal" id="ticket-modal">
+    <div class="modal-backdrop" id="ticket-modal-backdrop"></div>
+    <div class="modal-dialog modal-md">
+      <div class="modal-content ticket-wrapper">
+        <div class="modal-header">
+          <h3 class="modal-title"><i class="fa-solid fa-ticket-simple"></i> Vé Xem Phim Điện Tử</h3>
+          <button class="modal-close" id="close-ticket-modal-btn">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="cinema-e-ticket" id="e-ticket-card">
+            <div class="ticket-top">
+              <span class="ticket-cinema-brand">CYBER CINEMA</span>
+              <span class="ticket-status-badge">ĐÃ XÁC NHẬN</span>
+            </div>
+
+            <h3 class="ticket-movie-title" id="ticket-movie-name">Tên Phim</h3>
+
+            <div class="ticket-grid">
+              <div class="ticket-item">
+                <span class="t-label">Suất Chiếu:</span>
+                <span class="t-val" id="ticket-time">19:30 - 20/10/2026</span>
+              </div>
+              <div class="ticket-item">
+                <span class="t-label">Phòng Chiếu:</span>
+                <span class="t-val" id="ticket-room">Phòng 01 (IMAX)</span>
+              </div>
+              <div class="ticket-item">
+                <span class="t-label">Danh Sách Ghế:</span>
+                <span class="t-val highlight-gold" id="ticket-seats">C5, C6</span>
+              </div>
+              <div class="ticket-item">
+                <span class="t-label">Khách Hàng:</span>
+                <span class="t-val" id="ticket-customer">Nguyễn Văn An</span>
+              </div>
+            </div>
+
+            <div class="ticket-barcode-section">
+              <div class="barcode-lines"></div>
+              <p class="barcode-code" id="ticket-barcode-val">BK-DEMO-2026</p>
+            </div>
+          </div>
+
+          <div class="ticket-buttons">
+            <button class="btn btn-outline btn-block" onclick="window.print()">
+              <i class="fa-solid fa-print"></i> In Vé / Lưu PDF
+            </button>
+            <button class="btn btn-primary btn-block" id="ticket-done-btn">
+              <i class="fa-solid fa-house"></i> Hoàn Tất & Về Trang Chủ
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: TRA CỨU VÉ (LOOKUP) -->
+  <div class="modal" id="lookup-modal">
+    <div class="modal-backdrop" id="lookup-modal-backdrop"></div>
+    <div class="modal-dialog modal-md">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title"><i class="fa-solid fa-magnifying-glass"></i> Tra Cứu Thông Tin Vé</h3>
+          <button class="modal-close" id="close-lookup-modal-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="lookup-form" class="lookup-form">
+            <div class="form-group">
+              <label for="lookup-code-input">Nhập Mã Đặt Chỗ (Booking Code):</label>
+              <div class="input-with-button">
+                <input type="text" id="lookup-code-input" placeholder="Ví dụ: BK-DEMO-001" required>
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-search"></i> Tra Cứu</button>
+              </div>
+            </div>
+          </form>
+
+          <div id="lookup-result-box" class="lookup-result-box" style="display: none;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-container">
+      <div class="footer-info">
+        <h4>ĐỒ ÁN HỌC PHẦN: TRIỂN KHAI VÀ QUẢN TRỊ HỆ THỐNG PHẦN MỀM</h4>
+        <p><strong>Đề tài 11:</strong> Hệ thống Đặt vé Xem phim / Sự kiện bằng Docker Compose</p>
+        <p><strong>Công nghệ:</strong> Docker Compose • Node.js Express • MySQL 8 • Nginx HTTPS • Prometheus • Grafana • Loki</p>
+      </div>
+      <div class="footer-links">
+        <a href="/metrics" target="_blank"><i class="fa-solid fa-chart-line"></i> Prometheus Metrics</a>
+        <a href="/health" target="_blank"><i class="fa-solid fa-heart-pulse"></i> Health Status</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

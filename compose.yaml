@@ -1,0 +1,126 @@
+# ========================================================
+# DOCKER COMPOSE — HỆ THỐNG ĐẶT VÉ XEM PHIM (ĐỀ 11)
+# GIAI ĐOẠN 3: NGINX REVERSE PROXY, HTTPS & HARDENING
+# ========================================================
+
+name: movie-ticket
+
+services:
+  # ------------------------------------------------------
+  # 1. Cơ sở dữ liệu MySQL 8.x
+  # ------------------------------------------------------
+  db:
+    image: mysql:8.0.40
+    container_name: movieticket_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-RootAdminSuperSecure2026!}
+      MYSQL_DATABASE: ${DB_NAME:-cinema_booking}
+      MYSQL_USER: ${DB_USER:-cinema_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-CinemaSecurePass2026!}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - backend
+      - dbadmin
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 25s
+
+  # ------------------------------------------------------
+  # 2. Ứng dụng Backend Web & API (Node.js / Express)
+  # ------------------------------------------------------
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    image: movieticket-app:1.0.0
+    container_name: movieticket_app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-cinema_booking}
+      DB_USER: ${DB_USER:-cinema_user}
+      DB_PASSWORD: ${DB_PASSWORD:-CinemaSecurePass2026!}
+    # HARDENING: Không công khai cổng app trực tiếp ra máy host
+    # Toàn bộ truy cập phải qua Nginx Reverse Proxy
+    expose:
+      - "3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - frontend
+      - backend
+
+  # ------------------------------------------------------
+  # 3. Nginx Reverse Proxy & HTTPS Cổng Truy Cập Duy Nhất
+  # ------------------------------------------------------
+  nginx:
+    image: nginx:1.27.3-alpine
+    container_name: movieticket_nginx
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${NGINX_HTTP_PORT:-8080}:80"
+      - "127.0.0.1:${NGINX_HTTPS_PORT:-8443}:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - frontend
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider --no-check-certificate https://127.0.0.1/nginx_health || exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ------------------------------------------------------
+  # 4. Quản trị Database trực quan (phpMyAdmin)
+  # ------------------------------------------------------
+  pma:
+    image: phpmyadmin:5.2.1
+    container_name: movieticket_pma
+    restart: unless-stopped
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: ${DB_USER:-cinema_user}
+      PMA_PASSWORD: ${DB_PASSWORD:-CinemaSecurePass2026!}
+      UPLOAD_LIMIT: 64M
+    ports:
+      # Chỉ mở trên localhost phục vụ quản trị và chấm điểm demo
+      - "127.0.0.1:${PMA_PORT_HOST:-8081}:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - dbadmin
+
+# ========================================================
+# CÁCH LY MẠNG (NETWORK ISOLATION)
+# ========================================================
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+  dbadmin:
+    driver: bridge
+
+# ========================================================
+# LƯU TRỮ BỀN VỮNG (PERSISTENT VOLUMES)
+# ========================================================
+volumes:
+  db_data:
+    name: movieticket_db_data
