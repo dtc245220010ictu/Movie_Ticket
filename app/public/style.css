@@ -24,8 +24,8 @@
   --text-muted: #9ca3af;
   --text-subtle: #6b7280;
 
-  --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-display: 'Outfit', sans-serif;
+  --font-main: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
 
   --radius-sm: 8px;
   --radius-md: 14px;
