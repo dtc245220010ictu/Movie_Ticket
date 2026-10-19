@@ -21,6 +21,10 @@ services:
     volumes:
       - db_data:/var/lib/mysql
       - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    # Buoc phu charset utf8mb4 cho server (khac phuc loi font chu do seed latin1)
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
     networks:
       - backend
       - dbadmin

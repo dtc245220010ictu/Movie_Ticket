@@ -564,6 +564,10 @@ button {
   max-width: 580px;
 }
 
+.modal-dialog.modal-lg {
+  max-width: 780px;
+}
+
 @keyframes modalEnter {
   from { transform: scale(0.94) translateY(15px); opacity: 0; }
   to { transform: scale(1) translateY(0); opacity: 1; }
@@ -892,6 +896,12 @@ button {
   color: #67e8f9;
 }
 
+.alert-danger {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
 .payment-amount-box {
   background: var(--bg-surface-elevated);
   padding: 18px;
@@ -1146,4 +1156,261 @@ button {
 
 .footer-links a:hover {
   color: var(--primary);
+}
+
+/* ========================================================
+   UTILITIES & SHARED COMPONENTS (spinner, empty, lookup...)
+   ======================================================== */
+.text-center {
+  text-align: center;
+}
+
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 36px 16px;
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.loading-spinner i {
+  font-size: 28px;
+  color: var(--primary);
+}
+
+.empty-state,
+.error-state {
+  padding: 28px 16px;
+  text-align: center;
+  border: 1px dashed var(--border-glass);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.empty-state p,
+.error-state p {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 4px;
+}
+
+.error-state p {
+  color: var(--accent-red);
+}
+
+.empty-state small {
+  color: var(--text-subtle);
+  font-size: 12.5px;
+}
+
+.input-with-button {
+  display: flex;
+  gap: 10px;
+}
+
+.input-with-button input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.input-with-button input:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+.lookup-form {
+  margin-bottom: 18px;
+}
+
+/* ========================================================
+   MY TICKETS (VÉ CỦA TÔI)
+   ======================================================== */
+.my-tickets-section {
+  margin-top: 18px;
+}
+
+.my-tickets-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-main);
+  margin-bottom: 12px;
+}
+
+.my-tickets-clear-btn {
+  margin-left: auto;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 20px;
+  line-height: 1;
+  padding: 0 6px;
+  transition: color 0.2s;
+}
+
+.my-tickets-clear-btn:hover {
+  color: var(--accent-red);
+}
+
+.my-tickets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 52vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.my-tickets-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.my-tickets-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.my-ticket-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.my-ticket-card:hover {
+  border-color: var(--border-active);
+  transform: translateY(-2px);
+}
+
+.my-ticket-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.my-ticket-code {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  color: var(--accent-gold);
+}
+
+.my-ticket-status {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+}
+
+.my-ticket-status-confirmed {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #10b981;
+}
+
+.my-ticket-status-pending {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #f59e0b;
+}
+
+.my-ticket-status-cancelled {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #ef4444;
+}
+
+.my-ticket-movie {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 12px;
+}
+
+.my-ticket-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+}
+
+.tk-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  margin-bottom: 2px;
+}
+
+.tk-val {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-main);
+  word-break: break-word;
+}
+
+.tk-highlight {
+  color: var(--accent-gold);
+}
+
+.my-ticket-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border-glass);
+}
+
+.my-ticket-total {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--accent-green);
+}
+
+.my-ticket-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .my-ticket-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .input-with-button {
+    flex-direction: column;
+  }
 }

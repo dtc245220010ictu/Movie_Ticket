@@ -85,6 +85,10 @@ check "TC-13: Non-Root Container User" "$R" 'node\|appuser'
 R=$(curl -skI "$BASE_HTTPS")
 check "TC-14: X-Content-Type-Options Header" "$R" 'X-Content-Type-Options'
 
+# TC-15: My Tickets (Lay danh sach ve da dat theo email)
+R=$(curl -sk "$BASE_HTTPS/api/my-tickets?email=an.nguyen@example.com")
+check "TC-15: My Tickets by email" "$R" '"success":true'
+
 echo ""
 echo "=================================================="
 echo "  KET QUA: PASS=$PASS | FAIL=$FAIL"

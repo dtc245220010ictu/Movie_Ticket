@@ -21,7 +21,8 @@
       <nav class="nav-links">
         <a href="#movies-section" class="nav-item active"><i class="fa-solid fa-clapperboard"></i> Phim Đang Chiếu</a>
         <a href="#showtimes-section" class="nav-item"><i class="fa-solid fa-calendar-days"></i> Lịch Chiếu</a>
-        <a href="#" class="nav-item" id="nav-lookup-btn"><i class="fa-solid fa-ticket"></i> Tra Cứu Vé</a>
+        <a href="#" class="nav-item" id="nav-my-tickets-btn"><i class="fa-solid fa-ticket-simple"></i> Vé Của Tôi</a>
+        <a href="#" class="nav-item" id="nav-lookup-btn"><i class="fa-solid fa-magnifying-glass"></i> Tra Cứu Vé</a>
       </nav>
 
       <div class="nav-actions">
@@ -265,7 +266,7 @@
           <div class="cinema-e-ticket" id="e-ticket-card">
             <div class="ticket-top">
               <span class="ticket-cinema-brand">CYBER CINEMA</span>
-              <span class="ticket-status-badge">ĐÃ XÁC NHẬN</span>
+              <span class="ticket-status-badge" id="ticket-status-badge">ĐÃ XÁC NHẬN</span>
             </div>
 
             <h3 class="ticket-movie-title" id="ticket-movie-name">Tên Phim</h3>
@@ -329,6 +330,50 @@
           </form>
 
           <div id="lookup-result-box" class="lookup-result-box" style="display: none;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: VÉ CỦA TÔI (MY TICKETS) — XEM CÁC VÉ ĐÃ ĐẶT -->
+  <div class="modal" id="my-tickets-modal">
+    <div class="modal-backdrop" id="my-tickets-modal-backdrop"></div>
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title"><i class="fa-solid fa-ticket-simple"></i> Vé Của Tôi</h3>
+          <button class="modal-close" id="close-my-tickets-modal-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <!-- Tra cứu theo email đã dùng khi đặt vé -->
+          <form id="my-tickets-form" class="lookup-form">
+            <div class="form-group">
+              <label for="my-tickets-email-input"><i class="fa-solid fa-envelope"></i> Tìm vé theo Email đã đặt:</label>
+              <div class="input-with-button">
+                <input type="email" id="my-tickets-email-input" placeholder="vidu: ban@email.com">
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-search"></i> Tìm Vé</button>
+              </div>
+            </div>
+          </form>
+
+          <!-- Kết quả tra cứu theo email (ẩn ban đầu) -->
+          <div class="my-tickets-section" id="my-tickets-search-section" style="display: none;">
+            <h4 class="my-tickets-section-title">
+              <i class="fa-solid fa-envelope-open-text"></i> Kết Quả Theo Email
+              <button type="button" class="my-tickets-clear-btn" id="clear-search-results-btn">&times;</button>
+            </h4>
+            <div id="my-tickets-search-list" class="my-tickets-list"></div>
+          </div>
+
+          <!-- Vé được lưu ngay trên thiết bị này -->
+          <div class="my-tickets-section">
+            <h4 class="my-tickets-section-title">
+              <i class="fa-solid fa-mobile-screen-button"></i> Vé Đặt Trên Thiết Bị Này
+            </h4>
+            <div id="my-tickets-device-list" class="my-tickets-list">
+              <div class="loading-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i> Đang tải danh sách vé...</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -231,6 +231,7 @@ docker compose down -v
 - Chon ghe ngoi -- So do ghe truc quan, phan biet ghe trong/da dat/dang chon
 - Dat ve -- Form nhap thong tin khach hang, xac nhan dat ve
 - Xem booking -- Kiem tra ma dat ve da tao
+- Ve cua toi -- Xem danh sach ve da dat (tim theo email hoac ve luu tren thiet bi), tiep tuc thanh toan / huy ve / xem lai e-ticket
 - Giao dien Responsive -- Tuong thich mobile, tablet, desktop
 
 ### Quan Tri (Admin)
@@ -283,6 +284,8 @@ Response mau `/api/movies`:
 |---|---|---|
 | POST | /bookings | Tao dat ve moi |
 | GET | /bookings/:bookingCode | Tra cuu booking theo ma |
+| GET | /my-tickets?email=student@gmail.com | Lay danh sach ve da dat theo email |
+| GET | /my-tickets?codes=BK-001,BK-002 | Lay danh sach ve theo danh sach ma ve (toi da 20 ma) |
 
 Request body `POST /api/bookings`:
 ```json
@@ -542,6 +545,30 @@ Expected: `appuser` (khong phai root)  PASS
 curl -skI https://localhost:8443 | grep -i "x-content\|x-frame\|x-xss"
 ```
 Expected: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection  PASS
+
+### TC-15: My Tickets (Ve cua toi theo email)
+
+```bash
+curl -sk "https://localhost:8443/api/my-tickets?email=an.nguyen@example.com"
+```
+Expected: `"success":true` va mang `data` chua booking + details ve  PASS
+
+---
+
+## Xu Ly Loi Font Chu Vietnamese (Mojibake)
+
+**Nguyen nhan:** du lieu seed trong `mysql/init.sql` bi encode 2 lan (mysql CLI chay voi `character_set_client=latin1`), nen ten phim hien thanh `Dune: HÃ­nh Tinh CÃ¡t`.
+
+**Cach sua da ap dung:**
+1. `compose.yaml` (db service): them `command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci` (khong dung mount my.cnf vi Docker Desktop mount permission 666 bi MySQL tu choi).
+2. `nginx/default.conf`: header `add_header Content-Type "text/html; charset=UTF-8"` + `charset utf-8;`
+3. Du lieu trong volume cu da hong -> chay lai init.sql voi client utf8mb4:
+
+```bash
+docker exec movieticket_db sh -c 'mysql --default-character-set=utf8mb4 -uroot -p$MYSQL_ROOT_PASSWORD < /docker-entrypoint-initdb.d/init.sql'
+```
+
+4. Kiem tra lai: `SELECT HEX(title) FROM movies;` -> chu "Hanh" co byte `48C3A06E68` (UTF-8 dung) thay vi `48C383C2AD` (bi mojibake).
 
 ---
 

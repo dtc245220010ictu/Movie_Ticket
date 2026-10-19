@@ -9,6 +9,7 @@ const state = {
   currentMovie: null,
   selectedSeats: new Map(), // seatId -> seatObject
   activeBooking: null,
+  myTickets: new Map(), // booking_id -> { booking, details } cho màn hình "Vé Của Tôi"
 };
 
 // ================= INITIALIZATION =================
@@ -51,7 +52,18 @@ function initEventListeners() {
   document.getElementById('ticket-done-btn')?.addEventListener('click', () => {
     closeTicketModal();
     loadShowtimes();
+    refreshMyTicketsIfOpen();
   });
+
+  // Modal Vé Của Tôi (My Tickets)
+  document.getElementById('nav-my-tickets-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    openMyTicketsModal();
+  });
+  document.getElementById('close-my-tickets-modal-btn')?.addEventListener('click', closeMyTicketsModal);
+  document.getElementById('my-tickets-modal-backdrop')?.addEventListener('click', closeMyTicketsModal);
+  document.getElementById('my-tickets-form')?.addEventListener('submit', handleMyTicketsSearch);
+  document.getElementById('clear-search-results-btn')?.addEventListener('click', clearMyTicketsSearch);
 
   // Modal Tra cứu vé
   document.getElementById('nav-lookup-btn')?.addEventListener('click', (e) => {
@@ -364,6 +376,8 @@ async function handleBookingSubmit(e) {
     }
 
     state.activeBooking = data.data;
+    // Lưu mã vé vào thiết bị để hiển thị ở mục "Vé Của Tôi"
+    saveMyTicketCode(state.activeBooking.booking_code);
     closeSeatModal();
     openPaymentModal(state.activeBooking);
     showToast('Tạo đơn giữ vé thành công! Vui lòng hoàn tất thanh toán.', 'success');
@@ -417,7 +431,7 @@ async function handleMockPayment(action) {
 
     if (action === 'pay') {
       showToast('Thanh toán thành công! Vé đã được xuất.', 'success');
-      openTicketModal(state.activeBooking);
+      openTicketModal(state.activeBooking, state.activeBooking.details || null);
     } else {
       showToast('Đã hủy giao dịch đặt vé. Các ghế đã được mở lại.', 'error');
       loadShowtimes();
@@ -432,16 +446,38 @@ async function handleMockPayment(action) {
 }
 
 // ================= XUẤT VÉ ĐIỆN TỬ (E-TICKET) =================
-function openTicketModal(booking) {
+// Hỗ trợ 2 nguồn: details (từ "Vé Của Tôi") hoặc state.currentShowtime (luồng đặt vé cũ)
+function openTicketModal(booking, details = null) {
   const modal = document.getElementById('ticket-modal');
-  document.getElementById('ticket-movie-name').textContent = state.currentShowtime?.movie_title || 'Phim Điện Ảnh';
-  document.getElementById('ticket-time').textContent = formatDateTime(state.currentShowtime?.start_time || new Date());
-  document.getElementById('ticket-room').textContent = `${state.currentShowtime?.room_name} (${state.currentShowtime?.screen_type})`;
-  
-  const seatCodes = booking.seats.map((s) => s.code).join(', ');
+  const source = details && details.length > 0 ? details : null;
+  const first = source ? source[0] : null;
+
+  document.getElementById('ticket-movie-name').textContent =
+    first?.movie_title || state.currentShowtime?.movie_title || 'Phim Điện Ảnh';
+  document.getElementById('ticket-time').textContent = formatDateTime(
+    first?.start_time || state.currentShowtime?.start_time || new Date()
+  );
+  document.getElementById('ticket-room').textContent = first
+    ? `${first.room_name} (${first.screen_type})`
+    : `${state.currentShowtime?.room_name} (${state.currentShowtime?.screen_type})`;
+
+  const seatCodes = source
+    ? source.map((d) => d.seat_code).join(', ')
+    : (booking.seats || []).map((s) => s.code).join(', ');
   document.getElementById('ticket-seats').textContent = seatCodes;
   document.getElementById('ticket-customer').textContent = booking.customer_name;
   document.getElementById('ticket-barcode-val').textContent = booking.booking_code;
+
+  // Nhãn trạng thái trên vé
+  const statusBadge = document.getElementById('ticket-status-badge');
+  if (statusBadge) {
+    const status = booking.status || 'confirmed';
+    statusBadge.textContent =
+      status === 'confirmed' ? 'ĐÃ XÁC NHẬN' : status === 'pending' ? 'CHỜ THANH TOÁN' : 'ĐÃ HỦY';
+    statusBadge.style.background = status === 'confirmed' ? '' : 'rgba(245, 158, 11, 0.15)';
+    statusBadge.style.color = status === 'confirmed' ? '' : status === 'pending' ? '#f59e0b' : '#ef4444';
+    statusBadge.style.border = status === 'confirmed' ? '' : '1px solid currentColor';
+  }
 
   modal.classList.add('active');
 }
@@ -504,6 +540,256 @@ async function handleLookupSubmit(e) {
     `;
   } catch (err) {
     resultBox.innerHTML = `<div class="alert alert-danger">Lỗi tra cứu: Không thể kết nối máy chủ.</div>`;
+  }
+}
+
+// ================= VÉ CỦA TÔI (MY TICKETS) =================
+const MY_TICKETS_STORAGE_KEY = 'cybercinema_my_tickets';
+
+function getSavedTicketCodes() {
+  try {
+    const raw = localStorage.getItem(MY_TICKETS_STORAGE_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list.filter((code) => typeof code === 'string' && code) : [];
+  } catch (err) {
+    return [];
+  }
+}
+
+function saveMyTicketCode(code) {
+  if (!code) return;
+  try {
+    const list = getSavedTicketCodes().filter((c) => c !== code);
+    list.unshift(code);
+    localStorage.setItem(MY_TICKETS_STORAGE_KEY, JSON.stringify(list.slice(0, 20)));
+  } catch (err) {
+    // localStorage có thể bị chặn (chế độ riêng tư) — bỏ qua an toàn
+  }
+}
+
+function openMyTicketsModal() {
+  document.getElementById('my-tickets-modal').classList.add('active');
+  loadDeviceTickets();
+}
+
+function closeMyTicketsModal() {
+  document.getElementById('my-tickets-modal').classList.remove('active');
+}
+
+// Tự làm mới danh sách khi modal đang mở (sau thanh toán / hủy vé / in vé)
+function refreshMyTicketsIfOpen() {
+  const modal = document.getElementById('my-tickets-modal');
+  if (!modal || !modal.classList.contains('active')) return;
+
+  loadDeviceTickets();
+
+  const searchSection = document.getElementById('my-tickets-search-section');
+  if (searchSection && searchSection.style.display !== 'none') {
+    const email = document.getElementById('my-tickets-email-input').value.trim();
+    if (email) searchMyTickets(email);
+  }
+}
+
+function myTicketsSpinner(text) {
+  return `<div class="loading-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i> ${escapeHtml(text)}</div>`;
+}
+
+// Tải các vé đã lưu trên thiết bị này (mã vé trong localStorage)
+async function loadDeviceTickets() {
+  const container = document.getElementById('my-tickets-device-list');
+  const codes = getSavedTicketCodes();
+
+  if (codes.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <p><i class="fa-solid fa-ticket"></i> Chưa có vé nào trên thiết bị này.</p>
+        <small>Hãy chọn phim và đặt vé — mã vé sẽ tự động xuất hiện tại đây.</small>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = myTicketsSpinner('Đang tải danh sách vé trên thiết bị...');
+
+  try {
+    const res = await fetch(`/api/my-tickets?codes=${encodeURIComponent(codes.join(','))}`);
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.message || 'Lỗi tải danh sách vé');
+    renderMyTicketsList(container, data.data);
+  } catch (err) {
+    console.error('Lỗi tải vé trên thiết bị:', err);
+    container.innerHTML = `<div class="error-state"><p>Không thể tải danh sách vé. Vui lòng thử lại sau.</p></div>`;
+  }
+}
+
+// Tra cứu vé theo email
+async function handleMyTicketsSearch(e) {
+  e.preventDefault();
+  const email = document.getElementById('my-tickets-email-input').value.trim();
+  if (!email) return;
+
+  document.getElementById('my-tickets-search-section').style.display = 'block';
+  await searchMyTickets(email);
+}
+
+async function searchMyTickets(email) {
+  const list = document.getElementById('my-tickets-search-list');
+  list.innerHTML = myTicketsSpinner('Đang tra cứu vé theo email...');
+
+  try {
+    const res = await fetch(`/api/my-tickets?email=${encodeURIComponent(email)}`);
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.message || 'Lỗi tra cứu vé');
+    renderMyTicketsList(list, data.data);
+  } catch (err) {
+    console.error('Lỗi tra cứu vé theo email:', err);
+    list.innerHTML = `<div class="alert alert-danger"><i class="fa-solid fa-triangle-exclamation"></i> Không thể tra cứu vé. Vui lòng thử lại sau.</div>`;
+  }
+}
+
+function clearMyTicketsSearch() {
+  document.getElementById('my-tickets-search-section').style.display = 'none';
+  document.getElementById('my-tickets-search-list').innerHTML = '';
+  document.getElementById('my-tickets-email-input').value = '';
+}
+
+function renderMyTicketsList(container, items) {
+  if (!items || items.length === 0) {
+    container.innerHTML = `<div class="empty-state"><p>Không tìm thấy vé nào phù hợp.</p></div>`;
+    return;
+  }
+
+  // Ghi cache để các nút hành động (thanh toán / hủy / xem vé) tra ngược được dữ liệu
+  items.forEach((item) => state.myTickets.set(item.booking.id, item));
+  container.innerHTML = items.map(renderMyTicketCard).join('');
+}
+
+function renderMyTicketCard({ booking, details }) {
+  const status = booking.status;
+  const statusClass = status === 'confirmed' ? 'confirmed' : status === 'pending' ? 'pending' : 'cancelled';
+  const statusText =
+    status === 'confirmed' ? 'ĐÃ XÁC NHẬN' : status === 'pending' ? 'CHỜ THANH TOÁN' : 'ĐÃ HỦY';
+  const first = details.length > 0 ? details[0] : null;
+  const seats = details.map((d) => d.seat_code).join(', ') || 'N/A';
+
+  let actions = '';
+  if (status === 'pending') {
+    actions = `
+      <button class="btn btn-success btn-sm" onclick="resumeMyTicketPayment(${booking.id})">
+        <i class="fa-solid fa-credit-card"></i> Thanh Toán
+      </button>
+      <button class="btn btn-danger btn-sm" onclick="cancelMyTicket(${booking.id})">
+        <i class="fa-solid fa-ban"></i> Hủy Vé
+      </button>`;
+  } else if (status === 'confirmed') {
+    actions = `
+      <button class="btn btn-outline btn-sm" onclick="viewMyTicket(${booking.id})">
+        <i class="fa-solid fa-eye"></i> Xem Vé
+      </button>`;
+  }
+
+  return `
+    <div class="my-ticket-card">
+      <div class="my-ticket-card-head">
+        <span class="my-ticket-code"><i class="fa-solid fa-barcode"></i> ${escapeHtml(booking.booking_code)}</span>
+        <span class="my-ticket-status my-ticket-status-${statusClass}">${statusText}</span>
+      </div>
+
+      <h5 class="my-ticket-movie">${escapeHtml(first ? first.movie_title : 'Không rõ suất chiếu')}</h5>
+
+      <div class="my-ticket-grid">
+        <div>
+          <span class="tk-label">Suất Chiếu</span>
+          <span class="tk-val">${first ? formatDateTime(first.start_time) : '--:--'}</span>
+        </div>
+        <div>
+          <span class="tk-label">Phòng Chiếu</span>
+          <span class="tk-val">${first ? escapeHtml(`${first.room_name} (${first.screen_type})`) : '--'}</span>
+        </div>
+        <div>
+          <span class="tk-label">Ghế Đã Đặt</span>
+          <span class="tk-val tk-highlight">${escapeHtml(seats)}</span>
+        </div>
+        <div>
+          <span class="tk-label">Khách Hàng</span>
+          <span class="tk-val">${escapeHtml(booking.customer_name)}</span>
+        </div>
+        <div>
+          <span class="tk-label">Ngày Đặt</span>
+          <span class="tk-val">${formatDateTime(booking.created_at)}</span>
+        </div>
+        <div>
+          <span class="tk-label">Mã Thanh Toán</span>
+          <span class="tk-val">${booking.payment_code ? escapeHtml(booking.payment_code) : '—'}</span>
+        </div>
+      </div>
+
+      <div class="my-ticket-footer">
+        <span class="my-ticket-total">${formatVnd(parseFloat(booking.total_amount))}</span>
+        <div class="my-ticket-actions">${actions}</div>
+      </div>
+    </div>`;
+}
+
+// Xem lại vé điện tử từ danh sách
+function viewMyTicket(bookingId) {
+  const item = state.myTickets.get(bookingId);
+  if (!item) return;
+  openTicketModal(
+    {
+      booking_code: item.booking.booking_code,
+      customer_name: item.booking.customer_name,
+      status: item.booking.status,
+      seats: item.details.map((d) => ({ code: d.seat_code })),
+    },
+    item.details
+  );
+}
+
+// Tiếp tục thanh toán cho đơn đang chờ (pending)
+function resumeMyTicketPayment(bookingId) {
+  const item = state.myTickets.get(bookingId);
+  if (!item) return;
+
+  state.activeBooking = {
+    booking_id: item.booking.id,
+    booking_code: item.booking.booking_code,
+    total_amount: parseFloat(item.booking.total_amount),
+    customer_name: item.booking.customer_name,
+    seats: item.details.map((d) => ({ code: d.seat_code })),
+    details: item.details,
+  };
+  openPaymentModal(state.activeBooking);
+}
+
+// Hủy đơn đặt vé (giải phóng ghế)
+async function cancelMyTicket(bookingId) {
+  const item = state.myTickets.get(bookingId);
+  if (!item) return;
+
+  const ok = confirm(
+    `Bạn có chắc muốn hủy vé ${item.booking.booking_code}? Các ghế đã giữ sẽ được giải phóng cho khách khác.`
+  );
+  if (!ok) return;
+
+  try {
+    const res = await fetch('/api/payments/mock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ booking_id: bookingId, action: 'cancel' }),
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      showToast(data.message || 'Không thể hủy vé. Vui lòng thử lại.', 'error');
+      return;
+    }
+
+    showToast(data.message || 'Đã hủy vé thành công. Ghế đã được giải phóng.', 'success');
+    refreshMyTicketsIfOpen();
+    loadShowtimes();
+  } catch (err) {
+    console.error('Lỗi hủy vé:', err);
+    showToast('Lỗi kết nối khi hủy vé', 'error');
   }
 }
 

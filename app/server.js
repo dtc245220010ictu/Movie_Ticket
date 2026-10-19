@@ -89,6 +89,7 @@ const dbConfig = {
   user: process.env.DB_USER || 'cinema_user',
   password: process.env.DB_PASSWORD || 'CinemaSecurePass2026!',
   database: process.env.DB_NAME || 'cinema_booking',
+  charset: 'utf8mb4',
   waitForConnections: true,
   connectionLimit: 15,
   queueLimit: 0,
@@ -551,6 +552,88 @@ app.get('/api/bookings/:code', async (req, res, next) => {
         booking: booking,
         details: seatRows,
       },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 5.8. VÉ CỦA TÔI (MY TICKETS) — LIỆT KÊ VÉ ĐÃ ĐẶT THEO EMAIL HOẶC MÃ VÉ
+app.get('/api/my-tickets', async (req, res, next) => {
+  try {
+    const email = (req.query.email || '').trim();
+    const codes = (req.query.codes || '')
+      .split(',')
+      .map((code) => code.trim())
+      .filter(Boolean)
+      .slice(0, 20);
+
+    if (!email && codes.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Thiếu dữ liệu tra cứu: cần truyền email hoặc danh sách mã vé (codes).',
+      });
+    }
+
+    let bookingRows;
+    if (email) {
+      [bookingRows] = await pool.query(
+        `SELECT b.id, b.booking_code, b.customer_name, b.customer_email, b.customer_phone,
+                b.total_amount, b.status, b.created_at,
+                p.payment_code, p.paid_at
+         FROM bookings b
+         LEFT JOIN payments p ON b.id = p.booking_id
+         WHERE b.customer_email = ?
+         ORDER BY b.created_at DESC`,
+        [email]
+      );
+    } else {
+      [bookingRows] = await pool.query(
+        `SELECT b.id, b.booking_code, b.customer_name, b.customer_email, b.customer_phone,
+                b.total_amount, b.status, b.created_at,
+                p.payment_code, p.paid_at
+         FROM bookings b
+         LEFT JOIN payments p ON b.id = p.booking_id
+         WHERE b.booking_code IN (?)
+         ORDER BY b.created_at DESC`,
+        [codes]
+      );
+    }
+
+    if (bookingRows.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    // Lấy chi tiết ghế / suất chiếu / phim cho toàn bộ đơn trong 1 truy vấn
+    const bookingIds = bookingRows.map((b) => b.id);
+    const [detailRows] = await pool.query(
+      `SELECT bs.booking_id, s.seat_code, s.seat_type, bs.price,
+              st.start_time, m.title as movie_title, m.poster_url,
+              r.name as room_name, r.screen_type
+       FROM booking_seats bs
+       JOIN seats s ON bs.seat_id = s.id
+       JOIN showtimes st ON bs.showtime_id = st.id
+       JOIN movies m ON st.movie_id = m.id
+       JOIN rooms r ON st.room_id = r.id
+       WHERE bs.booking_id IN (?)
+       ORDER BY s.seat_row, s.seat_number`,
+      [bookingIds]
+    );
+
+    const detailsByBooking = new Map();
+    detailRows.forEach((row) => {
+      if (!detailsByBooking.has(row.booking_id)) {
+        detailsByBooking.set(row.booking_id, []);
+      }
+      detailsByBooking.get(row.booking_id).push(row);
+    });
+
+    res.json({
+      success: true,
+      data: bookingRows.map((booking) => ({
+        booking,
+        details: detailsByBooking.get(booking.id) || [],
+      })),
     });
   } catch (err) {
     next(err);
