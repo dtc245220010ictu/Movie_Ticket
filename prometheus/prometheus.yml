@@ -1,0 +1,47 @@
+# ========================================================
+# PROMETHEUS CONFIGURATION — CINEMA MONITORING (ĐỀ 11)
+# ========================================================
+
+global:
+  scrape_interval: 10s       # Chu kỳ thu thập metrics (10 giây)
+  evaluation_interval: 10s   # Chu kỳ đánh giá quy tắc (rules)
+  scrape_timeout: 8s
+
+# Danh sách các Job thu thập metrics
+scrape_configs:
+  # 1. Tự giám sát Prometheus
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # 2. Giám sát Ứng dụng Backend Node.js / Express (prom-client)
+  - job_name: 'cinema_backend'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['app:3000']
+        labels:
+          app: 'cinema-booking'
+          env: 'production'
+
+  # 3. Giám sát Container Docker bằng cAdvisor
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+        labels:
+          role: 'container-monitor'
+
+  # 4. Giám sát Cơ sở dữ liệu MySQL (MySQL Prometheus Exporter)
+  - job_name: 'mysql'
+    static_configs:
+      - targets: ['mysql_exporter:9104']
+        labels:
+          service: 'database'
+          database_type: 'mysql'
+
+  # 5. Giám sát Web Server Nginx (Nginx Prometheus Exporter)
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx_exporter:9113']
+        labels:
+          service: 'reverse-proxy'
+          webserver: 'nginx'

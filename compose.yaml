@@ -1,6 +1,6 @@
 # ========================================================
 # DOCKER COMPOSE — HỆ THỐNG ĐẶT VÉ XEM PHIM (ĐỀ 11)
-# GIAI ĐOẠN 3: NGINX REVERSE PROXY, HTTPS & HARDENING
+# GIAI ĐOẠN 4: HỆ THỐNG GIÁM SÁT PROMETHEUS & GRAFANA
 # ========================================================
 
 name: movie-ticket
@@ -49,8 +49,6 @@ services:
       DB_NAME: ${DB_NAME:-cinema_booking}
       DB_USER: ${DB_USER:-cinema_user}
       DB_PASSWORD: ${DB_PASSWORD:-CinemaSecurePass2026!}
-    # HARDENING: Không công khai cổng app trực tiếp ra máy host
-    # Toàn bộ truy cập phải qua Nginx Reverse Proxy
     expose:
       - "3000"
     depends_on:
@@ -99,13 +97,122 @@ services:
       PMA_PASSWORD: ${DB_PASSWORD:-CinemaSecurePass2026!}
       UPLOAD_LIMIT: 64M
     ports:
-      # Chỉ mở trên localhost phục vụ quản trị và chấm điểm demo
       - "127.0.0.1:${PMA_PORT_HOST:-8081}:80"
     depends_on:
       db:
         condition: service_healthy
     networks:
       - dbadmin
+
+  # ------------------------------------------------------
+  # 5. MySQL Prometheus Exporter (Giám sát Database)
+  # ------------------------------------------------------
+  mysql_exporter:
+    image: prom/mysqld-exporter:v0.15.1
+    container_name: movieticket_mysql_exporter
+    restart: unless-stopped
+    command:
+      - --mysqld.address=db:3306
+      - --mysqld.username=exporter
+    environment:
+      MYSQLD_EXPORTER_PASSWORD: ${MYSQL_EXPORTER_PASSWORD:-ExporterSecurePass2026!}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+      - monitoring
+
+  # ------------------------------------------------------
+  # 6. Nginx Prometheus Exporter (Giám sát Web Server)
+  # ------------------------------------------------------
+  nginx_exporter:
+    image: nginx/nginx-prometheus-exporter:1.4.1
+    container_name: movieticket_nginx_exporter
+    restart: unless-stopped
+    command:
+      - -nginx.scrape-uri=http://nginx/stub_status
+    depends_on:
+      - nginx
+    networks:
+      - frontend
+      - monitoring
+
+  # ------------------------------------------------------
+  # 7. cAdvisor (Giám sát hiệu năng phần cứng Container)
+  # ------------------------------------------------------
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: movieticket_cadvisor
+    restart: unless-stopped
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    ports:
+      - "127.0.0.1:${CADVISOR_PORT:-8082}:8080"
+    networks:
+      - monitoring
+
+  # ------------------------------------------------------
+  # 8. Prometheus Server (Thu thập và lưu trữ Metrics)
+  # ------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: movieticket_prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./prometheus:/etc/prometheus:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - app
+      - nginx_exporter
+      - mysql_exporter
+    networks:
+      - frontend
+      - monitoring
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9090/-/healthy || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ------------------------------------------------------
+  # 9. Grafana (Trực quan hóa Dashboard Giám sát)
+  # ------------------------------------------------------
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: movieticket_grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-GrafanaSecret2026!}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3002}:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 # ========================================================
 # CÁCH LY MẠNG (NETWORK ISOLATION)
@@ -117,6 +224,8 @@ networks:
     driver: bridge
   dbadmin:
     driver: bridge
+  monitoring:
+    driver: bridge
 
 # ========================================================
 # LƯU TRỮ BỀN VỮNG (PERSISTENT VOLUMES)
@@ -124,3 +233,7 @@ networks:
 volumes:
   db_data:
     name: movieticket_db_data
+  prometheus_data:
+    name: movieticket_prometheus_data
+  grafana_data:
+    name: movieticket_grafana_data
