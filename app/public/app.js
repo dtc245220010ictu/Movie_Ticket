@@ -332,6 +332,59 @@ function closeSeatModal() {
   state.selectedSeats.clear();
 }
 
+/**
+ * Cập nhật sơ đồ ghế sau khi có xung đột (409 - ghế đã có người đặt).
+ * Lấy lại dữ liệu ghế mới nhất, vẽ lại lưới ghế, và tự động bỏ chọn
+ * những ghế đã bị người khác đặt để người dùng không phải chọn lại từ đầu.
+ */
+async function refreshSeatMapAfterConflict() {
+  if (!state.currentShowtime) return;
+
+  try {
+    const res = await fetch(`/api/showtimes/${state.currentShowtime.id}/seats`);
+    const data = await res.json();
+
+    if (!data.success || !data.data) {
+      showToast('Không thể tải lại sơ đồ ghế. Vui lòng đóng và mở lại.', 'error');
+      return;
+    }
+
+    // Cập nhật showtime trong state (giữ nguyên showtimeId)
+    state.currentShowtime = data.data.showtime;
+    const seats = data.data.seats;
+
+    // Xác định những seatId đang được chọn nhưng đã bị đặt bởi người khác
+    const bookedSeatIds = new Set(
+      seats.filter((s) => s.is_booked).map((s) => s.id)
+    );
+
+    // Bỏ chọn các ghế đã bị đặt từ state.selectedSeats
+    for (const seatId of state.selectedSeats.keys()) {
+      if (bookedSeatIds.has(seatId)) {
+        state.selectedSeats.delete(seatId);
+        const seatEl = document.getElementById(`seat-btn-${seatId}`);
+        if (seatEl) {
+          seatEl.classList.remove('seat-selected');
+        }
+      }
+    }
+
+    // Vẽ lại lưới ghế để hiển thị trạng thái mới (đã đặt, còn trống...)
+    renderSeatsGrid(seats);
+
+    // Cập nhật lại tóm tắt sidebar
+    updateSummarySidebar();
+
+    showToast(
+      'Một số ghế bạn chọn đã có người khác đặt. Vui lòng chọn ghế khác.',
+      'error'
+    );
+  } catch (err) {
+    console.error('Lỗi cập nhật sơ đồ ghế sau xung đột:', err);
+    showToast('Lỗi kết nối khi cập nhật sơ đồ ghế', 'error');
+  }
+}
+
 // ================= SUBMIT BOOKING (TẠO ĐƠN) =================
 async function handleBookingSubmit(e) {
   e.preventDefault();
@@ -368,9 +421,9 @@ async function handleBookingSubmit(e) {
 
     if (!res.ok || !data.success) {
       showToast(data.message || 'Lỗi khi tạo đơn đặt vé!', 'error');
-      // Nếu có xung đột ghế (409), tải lại sơ đồ ghế ngay
+      // Nếu có xung đột ghế (409), cập nhật sơ đồ ghế và bỏ chọn các ghế đã bị đặt
       if (res.status === 409) {
-        openSeatModal(state.currentShowtime.id);
+        await refreshSeatMapAfterConflict();
       }
       return;
     }
