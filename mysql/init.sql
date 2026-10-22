@@ -110,6 +110,9 @@ CREATE TABLE IF NOT EXISTS payments (
 -- ========================================================
 -- Tạo hoặc cập nhật user ứng dụng với quyền tối thiểu (không cấp DROP, ALTER, GRANT)
 CREATE USER IF NOT EXISTS 'cinema_user'@'%' IDENTIFIED BY 'CinemaSecurePass2026!';
+-- MYSQL_USER co the da duoc image MySQL cap ALL PRIVILEGES khi khoi tao.
+-- Thu hoi quyen cu truoc khi cap dung bon quyen nghiep vu cho user chuyen dung.
+REVOKE ALL PRIVILEGES, GRANT OPTION FROM 'cinema_user'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE ON cinema_booking.* TO 'cinema_user'@'%';
 
 -- Tạo user phục vụ cho MySQL Prometheus Exporter (Monitor Phase)

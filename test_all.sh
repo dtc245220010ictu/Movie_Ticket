@@ -43,9 +43,9 @@ check "TC-03: Filter now_showing" "$R" '"status":"now_showing"'
 R=$(curl -sk "$BASE_HTTPS/api/movies/1")
 check "TC-04: Movie Detail ID=1" "$R" '"id":1'
 
-# TC-05: Showtimes by movie
-R=$(curl -sk "$BASE_HTTPS/api/showtimes?movie_id=1")
-check "TC-05: Showtimes for movie 1" "$R" '"success":true'
+# TC-05: Active showtimes
+R=$(curl -sk "$BASE_HTTPS/api/showtimes")
+check "TC-05: Active showtimes" "$R" '"success":true'
 
 # TC-06: Seats for showtime
 R=$(curl -sk "$BASE_HTTPS/api/showtimes/1/seats")

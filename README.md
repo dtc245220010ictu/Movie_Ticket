@@ -53,8 +53,8 @@
 ### Thong Ke Du Lieu Mau
 
 - **5 phim** dang chieu va sap chieu
-- **7 suat chieu** tai 3 rap (cinema halls)
-- **70 ghe** / suat chieu (10 hang x 7 ghe)
+- **77 suat chieu** tu 21/10 den 27/10/2026 tai 2 phong chieu
+- **70 ghe tong cong**: phong 1 co 40 ghe, phong 2 co 30 ghe; moi suat chi dung ghe cua phong tuong ung
 - Ho tro dat ve theo thoi gian thuc voi kiem tra xung dot
 
 ---
@@ -117,7 +117,7 @@
 | 4 | pma | phpmyadmin:5.2.1 | movieticket_pma | Quan tri Database |
 | 5 | mysql_exporter | prom/mysqld-exporter:v0.15.1 | movieticket_mysql_exporter | MySQL Metrics |
 | 6 | nginx_exporter | nginx/nginx-prometheus-exporter:1.4.1 | movieticket_nginx_exporter | Nginx Metrics |
-| 7 | cadvisor | gcr.io/cadvisor/cadvisor:v0.49.1 | movieticket_cadvisor | Container Metrics |
+| 7 | cadvisor | ghcr.io/google/cadvisor:v0.60.5 | movieticket_cadvisor | Container Metrics |
 | 8 | prometheus | prom/prometheus:v2.55.1 | movieticket_prometheus | Metrics Aggregation |
 | 9 | grafana | grafana/grafana:11.3.0 | movieticket_grafana | Visualization |
 | 10 | loki | grafana/loki:3.2.1 | movieticket_loki | Log Storage |
@@ -275,7 +275,7 @@ Response mau `/api/movies`:
 
 | Method | Endpoint | Mo ta |
 |---|---|---|
-| GET | /showtimes?movie_id=1 | Suat chieu theo phim |
+| GET | /showtimes | Lay toan bo suat chieu con hieu luc |
 | GET | /showtimes/:id/seats | Danh sach ghe cua suat chieu |
 
 ### Bookings
@@ -323,12 +323,12 @@ Truy cap http://localhost:9090/targets de xem tat ca targets:
 
 ### Grafana Dashboards
 
-Truy cap http://localhost:3002 (admin / GrafanaSecret2026!):
+Truy cap http://localhost:3002; tai khoan lay tu cau hinh `.env`:
 
-1. **Cinema Backend Dashboard** -- HTTP requests, booking rate, DB latency
-2. **Node Exporter Full** -- CPU, RAM, Disk host metrics
-3. **Docker / cAdvisor** -- Container resource usage
-4. **Loki Logs** -- Tra cuu logs tap trung (Explorer -> Loki)
+1. **Cinema System / He Thong Dat Ve Xem Phim** -- HTTP requests, P95, booking events, MySQL/Nginx va CPU/RAM container
+2. **Explore -> Loki** -- Tra cuu logs tap trung. Du an khong khai bao node-exporter.
+
+`cinema_bookings_total` dem su kien trang thai, khong phai so don duy nhat hoac doanh thu.
 
 ### Loki Log Queries (LogQL)
 
@@ -337,10 +337,10 @@ Truy cap http://localhost:3002 (admin / GrafanaSecret2026!):
 {container="movieticket_app"}
 
 # Logs loi tu tat ca containers
-{compose_project="movie-ticket"} |= "error"
+{container=~"movieticket_.+"} |~ "(?i)error"
 
-# Logs booking moi
-{container="movieticket_app"} |= "booking"
+# Tong so dong log trong cua so truot 5 phut
+sum(count_over_time({container=~"movieticket_.+"}[5m]))
 ```
 
 ---
@@ -351,8 +351,7 @@ Truy cap http://localhost:3002 (admin / GrafanaSecret2026!):
 
 ```dockerfile
 # app/Dockerfile
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-USER appuser   # Chay voi user phi-root
+USER node   # User co san trong node:alpine, UID 1000; khong phai root
 ```
 
 ### 2. Network Isolation
@@ -392,11 +391,11 @@ ports:
 
 - File `.env` duoc them vao `.gitignore` -- khong bao gio commit mat khau
 - File `.env.example` cung cap template cho nguoi dung moi
-- Passwords duoc inject qua bien moi truong, khong hardcode
+- Runtime doc mat khau qua bien moi truong. Compose/backend/SQL khoi tao con gia tri mau; can thay va dong bo tai khoan DB truoc khi trien khai that.
 
 ### 6. Health Checks
 
-Tat ca services deu co `healthcheck` de Docker tu dong khoi dong lai khi gap su co.
+App, DB, Nginx va mot so dich vu quan sat co healthcheck. Nginx kiem tra HTTP `/nginx_health` va tra loi that khi kiem tra that bai. `restart: unless-stopped` xu ly khi tien trinh dung, khong tu khoi dong lai chi vi container bi unhealthy.
 
 ---
 
@@ -477,9 +476,9 @@ Expected: Chi tiet phim ID=1 (Dune)  PASS
 ### TC-05: Danh Sach Suat Chieu
 
 ```bash
-curl -sk "https://localhost:8443/api/showtimes?movie_id=1"
+curl -sk "https://localhost:8443/api/showtimes"
 ```
-Expected: Suat chieu cua phim ID=1  PASS
+Expected: Danh sach cac suat chieu con hieu luc, "success": true  PASS
 
 ### TC-06: Danh Sach Ghe
 
@@ -537,7 +536,7 @@ Expected: Khong co "movie-ticket_frontend" trong ket qua  PASS
 ```bash
 docker exec movieticket_app whoami
 ```
-Expected: `appuser` (khong phai root)  PASS
+Expected: `node` (khong phai root). Chi ghi PASS sau khi chay lenh tren moi truong hien tai.
 
 ### TC-14: Security Headers
 
@@ -639,7 +638,7 @@ docker compose up --build -d
 | Log Storage | Grafana Loki | 3.2.1 |
 | Log Collector | Promtail | 3.2.1 |
 | DB Admin | phpMyAdmin | 5.2.1 |
-| Container Metrics | cAdvisor | v0.49.1 |
+| Container Metrics | cAdvisor | v0.60.5 |
 
 ---
 

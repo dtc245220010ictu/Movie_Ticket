@@ -81,7 +81,7 @@ services:
     networks:
       - frontend
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider --no-check-certificate https://127.0.0.1/nginx_health || exit 0"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/nginx_health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -126,7 +126,6 @@ services:
     networks:
       - backend
       - monitoring
-
   # ------------------------------------------------------
   # 6. Nginx Prometheus Exporter (Giám sát Web Server)
   # ------------------------------------------------------
@@ -146,7 +145,7 @@ services:
   # 7. cAdvisor (Giám sát hiệu năng phần cứng Container)
   # ------------------------------------------------------
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    image: ghcr.io/google/cadvisor:v0.60.5
     container_name: movieticket_cadvisor
     restart: unless-stopped
     volumes:
